@@ -1,5 +1,5 @@
 extends Control
-## Launcher do Towers of Ages: consulta a última Release do repositório público
+## Launcher do Tower Overtime (antes Towers of Ages; o repo, o zip e o exe mantêm o nome antigo): consulta a última Release do repositório público
 ## de builds no GitHub, baixa e instala o jogo em game/ (ao lado do launcher)
 ## quando a versão mudou, e abre o jogo pelo botão Jogar.
 
@@ -13,12 +13,16 @@ const VERSION_FILE_NAME := "version.txt"
 const DOWNLOAD_TMP_NAME := "update_download.zip"
 const USER_AGENT := "TowersOfAgesLauncher"
 
-const BG := Color(0.03, 0.04, 0.06)
-const ACCENT := Color(0.38, 0.9, 1.0)
-const WARM := Color(1.0, 0.78, 0.36)
-const TEXT_DIM := Color(0.62, 0.68, 0.74)
+const GAME_TITLE := "Tower Overtime"
+const NAVY := Color(0.07, 0.1, 0.2)
+const GOLD := Color(1.0, 0.74, 0.14)
+const GOLD_DARK := Color(0.82, 0.38, 0.06)
+const RIFT := Color(0.38, 0.8, 1.0)
 const TITLE_FONT_FILE := preload("res://fonts/Fredoka.ttf")
 const BODY_FONT_FILE := preload("res://fonts/Nunito.ttf")
+const PANORAMA := preload("res://assets/panorama.jpg")
+const LOGO := preload("res://assets/tower_overtime_small.png")
+const LOGO_WIDTH := 340.0
 
 var _game_dir: String
 var _version_file_path: String
@@ -65,59 +69,62 @@ func _process(_delta: float) -> void:
 
 
 func _build_ui() -> void:
+	get_window().title = GAME_TITLE
 	var title_font := _font(TITLE_FONT_FILE, 600)
 	var ui_theme := Theme.new()
 	ui_theme.default_font = _font(BODY_FONT_FILE, 650)
 	ui_theme.default_font_size = 16
 	theme = ui_theme
 
+	# Fundo: a mesma foto do panorama da tela de carregamento do jogo, escurecida embaixo para o texto.
 	var background := ColorRect.new()
-	background.color = BG
+	background.color = NAVY
 	background.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
+	var picture := TextureRect.new()
+	picture.texture = PANORAMA
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	picture.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(picture)
 	var gradient := Gradient.new()
-	gradient.set_color(0, Color(ACCENT, 0.18))
-	gradient.set_color(1, Color(ACCENT, 0.0))
-	var glow_texture := GradientTexture2D.new()
-	glow_texture.gradient = gradient
-	glow_texture.fill = GradientTexture2D.FILL_RADIAL
-	glow_texture.fill_from = Vector2(0.5, 0.5)
-	glow_texture.fill_to = Vector2(1.0, 0.5)
-	var glow := TextureRect.new()
-	glow.texture = glow_texture
-	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
-	glow.offset_top = -260
-	glow.offset_left = 300
-	glow.offset_right = 260
-	add_child(glow)
+	gradient.set_color(0, Color(NAVY, 0.0))
+	gradient.add_point(0.5, Color(NAVY, 0.1))
+	gradient.set_color(gradient.get_point_count() - 1, Color(NAVY, 0.9))
+	var shade_texture := GradientTexture2D.new()
+	shade_texture.gradient = gradient
+	shade_texture.fill_from = Vector2(0, 0)
+	shade_texture.fill_to = Vector2(0, 1)
+	var shade := TextureRect.new()
+	shade.texture = shade_texture
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(shade)
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	for side: String in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 44)
+	for side: String in ["left", "right"]:
+		margin.add_theme_constant_override("margin_" + side, 32)
+	margin.add_theme_constant_override("margin_top", 14)
+	margin.add_theme_constant_override("margin_bottom", 26)
 	add_child(margin)
 	var column := VBoxContainer.new()
 	margin.add_child(column)
 
-	var logo := VBoxContainer.new()
-	logo.add_theme_constant_override("separation", -34)
+	var logo := TextureRect.new()
+	logo.texture = LOGO
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.custom_minimum_size = Vector2(LOGO_WIDTH, LOGO_WIDTH * LOGO.get_height() / LOGO.get_width())
+	logo.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(logo)
-	var title := Label.new()
-	title.text = "TOWERS"
-	_style_title(title, title_font, 96, Color.WHITE, 12)
-	logo.add_child(title)
-	var subtitle := Label.new()
-	subtitle.text = "OF AGES"
-	_style_title(subtitle, title_font, 48, WARM, 9)
-	logo.add_child(subtitle)
 
 	var filler := Control.new()
 	filler.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(filler)
 
 	_status_label = Label.new()
-	_status_label.add_theme_color_override("font_color", TEXT_DIM)
-	_status_label.add_theme_font_size_override("font_size", 15)
+	_style_title(_status_label, title_font, 17, Color.WHITE, 6)
 	column.add_child(_status_label)
 	var gap := Control.new()
 	gap.custom_minimum_size.y = 8
@@ -128,16 +135,19 @@ func _build_ui() -> void:
 	column.add_child(row)
 	_progress_bar = ProgressBar.new()
 	_progress_bar.show_percentage = false
-	_progress_bar.custom_minimum_size.y = 14
+	_progress_bar.custom_minimum_size.y = 26
 	_progress_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_progress_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var track := StyleBoxFlat.new()
-	track.bg_color = Color(1, 1, 1, 0.07)
-	track.set_corner_radius_all(7)
+	_progress_bar.add_theme_stylebox_override("background", _chunky_style(Color(NAVY, 0.92), NAVY.darkened(0.5), 3, 5))
 	var fill := StyleBoxFlat.new()
-	fill.bg_color = ACCENT
-	fill.set_corner_radius_all(7)
-	_progress_bar.add_theme_stylebox_override("background", track)
+	fill.bg_color = GOLD
+	fill.set_corner_radius_all(10)
+	fill.border_color = GOLD.lightened(0.35)
+	fill.border_width_top = 3
+	fill.expand_margin_left = -4
+	fill.expand_margin_right = -4
+	fill.expand_margin_top = -4
+	fill.expand_margin_bottom = -6
 	_progress_bar.add_theme_stylebox_override("fill", fill)
 	row.add_child(_progress_bar)
 
@@ -146,33 +156,46 @@ func _build_ui() -> void:
 	_play_button.disabled = true
 	_play_button.text = "    JOGAR"
 	_play_button.add_theme_font_override("font", title_font)
-	_play_button.add_theme_font_size_override("font_size", 26)
-	_play_button.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.3))
-	for state: Array in [["normal", Color(0.16, 0.52, 0.6)], ["hover", Color(0.22, 0.66, 0.75)],
-			["pressed", Color(0.1, 0.38, 0.45)], ["disabled", Color(0.1, 0.13, 0.17)], ["focus", Color(0, 0, 0, 0)]]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = state[1]
-		style.set_corner_radius_all(10)
-		style.border_color = ACCENT if state[0] != "disabled" else Color(1, 1, 1, 0.08)
-		style.set_border_width_all(1)
-		style.draw_center = state[0] != "focus"
-		_play_button.add_theme_stylebox_override(state[0], style)
-	var play_icon := MenuIcon.make("play", 24.0)
+	_play_button.add_theme_font_size_override("font_size", 28)
+	for state: String in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color"]:
+		_play_button.add_theme_color_override(state, NAVY)
+	_play_button.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.35))
+	_play_button.add_theme_stylebox_override("normal", _chunky_style(GOLD, GOLD_DARK))
+	_play_button.add_theme_stylebox_override("hover", _chunky_style(GOLD.lightened(0.18), RIFT))
+	_play_button.add_theme_stylebox_override("pressed", _chunky_style(GOLD.darkened(0.12), GOLD_DARK, 3, 2))
+	_play_button.add_theme_stylebox_override("focus", _chunky_style(Color.TRANSPARENT, RIFT))
+	_play_button.add_theme_stylebox_override("disabled", _chunky_style(Color(NAVY, 0.85), NAVY.darkened(0.5)))
+	var play_icon := MenuIcon.make("play", 24.0, NAVY)
 	_play_button.add_child(play_icon)
 	play_icon.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT, Control.PRESET_MODE_KEEP_SIZE)
 	play_icon.position.x = 34
+	play_icon.position.y -= 2
 	_play_button.pressed.connect(_on_play_pressed)
 	row.add_child(_play_button)
 
 	_version_label = Label.new()
-	_version_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.35))
-	_version_label.add_theme_font_size_override("font_size", 13)
+	_style_title(_version_label, title_font, 14, Color(1, 1, 1, 0.85), 5)
 	_version_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_version_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_version_label.offset_right = -18
-	_version_label.offset_top = 12
+	_version_label.offset_right = -14
+	_version_label.offset_top = 10
 	add_child(_version_label)
 	_refresh_version_label()
+
+
+## Botão grosso do jogo: cantos redondos, contorno escuro e a borda de baixo mais alta (o "degrau").
+static func _chunky_style(face: Color, edge: Color, border: int = 3, depth: int = 6) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = face
+	style.border_color = edge
+	style.set_border_width_all(border)
+	style.border_width_bottom = depth
+	style.set_corner_radius_all(14)
+	style.shadow_color = Color(0, 0, 0, 0.3)
+	# O foco é só a borda por cima do botão: a sombra dele escureceria a face inteira.
+	style.shadow_size = 2 if face.a > 0.0 else 0
+	style.shadow_offset = Vector2(0, 3)
+	return style
 
 
 func _font(file: Font, weight: int) -> FontVariation:
@@ -186,7 +209,7 @@ func _style_title(label: Label, font: Font, font_size: int, color: Color, outlin
 	label.add_theme_font_override("font", font)
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
-	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	label.add_theme_color_override("font_outline_color", NAVY)
 	label.add_theme_constant_override("outline_size", outline)
 
 
